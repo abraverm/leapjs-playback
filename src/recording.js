@@ -1,4 +1,8 @@
-function Recording (options){
+import * as Leap from 'leapjs';
+import * as LZString from 'lz-string';
+import saveAs from 'FileSaver';
+
+export default function Recording(options) {
   this.options = options || (options = {});
   this.loading = false;
   this.timeBetweenLoops = options.timeBetweenLoops || 50;
@@ -49,9 +53,8 @@ function Recording (options){
     ]}
   ];
 
-  this.setFrames(options.frames || [])
+  this.setFrames(options.frames || []);
 }
-
 
 Recording.prototype = {
 
@@ -64,7 +67,7 @@ Recording.prototype = {
     this.setMetaData();
   },
 
-  addFrame: function(frameData){
+  addFrame: function (frameData) {
     this.frameData.push(frameData);
   },
 
@@ -75,13 +78,13 @@ Recording.prototype = {
   nextFrame: function () {
     var frameIndex = this.frameIndex + 1;
     // || 1 to prevent `mod 0` error when finishing recording before setFrames has been called.
+
     frameIndex = frameIndex % (this.rightCropPosition || 1);
     if ((frameIndex < this.leftCropPosition)) {
       frameIndex = this.leftCropPosition;
     }
     return this.frameData[frameIndex];
   },
-
 
   advanceFrame: function () {
     this.frameIndex++;
@@ -91,9 +94,8 @@ Recording.prototype = {
       // there is currently an issue where angular watching the right handle position
       // will cause this to fire prematurely
       // when switching to an earlier recording
-      return false
+      return false;
     }
-
 
     this.frameIndex = this.frameIndex % (this.rightCropPosition || 1);
 
@@ -101,11 +103,11 @@ Recording.prototype = {
       this.frameIndex = this.leftCropPosition;
     }
 
-    return true
+    return true;
   },
 
   // resets to beginning if at end
-  readyPlay: function(){
+  readyPlay: function () {
     this.frameIndex++;
     if (this.frameIndex >= this.rightCropPosition) {
       this.frameIndex = this.frameIndex % (this.rightCropPosition || 1);
@@ -113,44 +115,46 @@ Recording.prototype = {
       if ((this.frameIndex < this.leftCropPosition)) {
         this.frameIndex = this.leftCropPosition;
       }
-    }else{
+    } else {
       this.frameIndex--;
     }
   },
 
-  cloneCurrentFrame: function(){
+  cloneCurrentFrame: function () {
     return JSON.parse(JSON.stringify(this.currentFrame()));
   },
-
 
   // this method would be well-moved to its own object/class -.-
   // for every point, lerp as appropriate
   // note: currently hand and finger props are hard coded, but things like stabilizedPalmPosition should be optional
   // should have this be set from the packingStructure or some such, but only for vec3s.
-  createLerpFrameData: function(t){
+  createLerpFrameData: function (t) {
     // http://stackoverflow.com/a/5344074/478354
     var currentFrame = this.currentFrame(),
-        nextFrame = this.nextFrame(),
-        handProps   = ['palmPosition', 'stabilizedPalmPosition', 'sphereCenter', 'direction', 'palmNormal', 'palmVelocity'],
-        fingerProps = ['mcpPosition', 'pipPosition', 'dipPosition', 'tipPosition', 'direction'],
-        frameData = this.cloneCurrentFrame(),
-        numHands = frameData.hands.length,
-        numPointables = frameData.pointables.length,
-        len1 = handProps.length,
-        len2 = fingerProps.length,
-        prop, hand, pointable;
+      nextFrame = this.nextFrame(),
+      handProps = ['palmPosition', 'stabilizedPalmPosition', 'sphereCenter', 'direction', 'palmNormal', 'palmVelocity'],
+      fingerProps = ['mcpPosition', 'pipPosition', 'dipPosition', 'tipPosition', 'direction'],
+      frameData = this.cloneCurrentFrame(),
+      numHands = frameData.hands.length,
+      numPointables = frameData.pointables.length,
+      len1 = handProps.length,
+      len2 = fingerProps.length,
+      prop, hand, pointable;
 
-    for (var i = 0; i < numHands; i++){
+    var i;
+    var j;
+
+    for (i = 0; i < numHands; i++) {
       hand = frameData.hands[i];
 
-      for (var j = 0; j < len1; j++){
+      for (j = 0; j < len1; j++) {
         prop = handProps[j];
 
-        if (!currentFrame.hands[i][prop]){
+        if (!currentFrame.hands[i][prop]) {
           continue;
         }
 
-        if (!nextFrame.hands[i]){
+        if (!nextFrame.hands[i]) {
           continue;
         }
 
@@ -161,22 +165,22 @@ Recording.prototype = {
           t
         );
 
-//        console.assert(hand[prop]);
+        //        console.assert(hand[prop]);
       }
 
     }
 
-    for ( i = 0; i < numPointables; i++){
+    for (i = 0; i < numPointables; i++) {
       pointable = frameData.pointables[i];
 
-      for ( j = 0; j < len2; j++){
+      for (j = 0; j < len2; j++) {
         prop = fingerProps[j];
 
-        if (!currentFrame.pointables[i][prop]){
+        if (!currentFrame.pointables[i][prop]) {
           continue;
         }
 
-        if (!nextFrame.hands[i]){
+        if (!nextFrame.hands[i]) {
           continue;
         }
 
@@ -186,8 +190,8 @@ Recording.prototype = {
           nextFrame.pointables[i][prop],
           0
         );
-//          console.assert(t >= 0 && t <= 1);
-//          if (t > 0) debugger;
+        //          console.assert(t >= 0 && t <= 1);
+        //          if (t > 0) debugger;
 
       }
 
@@ -199,34 +203,36 @@ Recording.prototype = {
   // returns ms
   timeToNextFrame: function () {
     var elapsedTime = (this.nextFrame().timestamp - this.currentFrame().timestamp) / 1000;
+
     if (elapsedTime < 0) {
-      elapsedTime = this.timeBetweenLoops; //arbitrary pause at slightly less than 30 fps.
+      elapsedTime = this.timeBetweenLoops; // arbitrary pause at slightly less than 30 fps.
     }
-//    console.assert(!isNaN(elapsedTime));
+    //    console.assert(!isNaN(elapsedTime));
     return elapsedTime;
   },
 
-
-  blank: function(){
+  blank: function () {
     return this.frameData.length === 0;
   },
 
   // sets the crop-point of the current recording to the current position.
   leftCrop: function () {
-    this.leftCropPosition = this.frameIndex
+    this.leftCropPosition = this.frameIndex;
   },
 
   // sets the crop-point of the current recording to the current position.
   rightCrop: function () {
-    this.rightCropPosition = this.frameIndex
+    this.rightCropPosition = this.frameIndex;
   },
 
   // removes every other frame from the array
   // Accepts an optional `factor` integer, which is the number of frames
   // discarded for every frame kept.
   cullFrames: function (factor) {
+    var i;
+
     factor || (factor = 1);
-    for (var i = 0; i < this.frameData.length; i++) {
+    for (i = 0; i < this.frameData.length; i++) {
       this.frameData.splice(i, factor);
     }
     this.setMetaData();
@@ -234,17 +240,18 @@ Recording.prototype = {
 
   // Returns the average frames per second of the recording
   frameRate: function () {
-    if (this.frameData.length == 0) {
-      return 0
+    if (this.frameData.length === 0) {
+      return 0;
     }
-    return this.frameData.length / (this.frameData[this.frameData.length - 1].timestamp - this.frameData[0].timestamp) * 1000000;
+    return this.frameData.length / (
+      this.frameData[this.frameData.length - 1].timestamp -
+      this.frameData[0].timestamp) * 1000000;
   },
 
   // returns frames without any circular references
   croppedFrameData: function () {
     return this.frameData.slice(this.leftCropPosition, this.rightCropPosition);
   },
-
 
   setMetaData: function () {
 
@@ -255,17 +262,18 @@ Recording.prototype = {
       protocolVersion: this.options.requestProtocolVersion,
       serviceVersion: this.options.serviceVersion,
       frameRate: this.frameRate().toPrecision(2),
-      modified: (new Date).toString()
+      modified: (new Date()).toString()
     };
+    var key;
 
     this.metadata || (this.metadata = {});
 
-    for (var key in newMetaData) {
+    for (key in newMetaData) {
       this.metadata[key] = newMetaData[key];
     }
 
-    if (!this.metadata.title && this.url){
-      this.metadata.title = this.url.replace(/(\.json)?(\.lz)?$/, '')
+    if (!this.metadata.title && this.url) {
+      this.metadata.title = this.url.replace(/(\.json)?(\.lz)?$/, '');
     }
 
   },
@@ -273,14 +281,15 @@ Recording.prototype = {
   // returns an array
   // the first item is the keys of the following items
   // nested arrays are expected to have idententical siblings
-  packedFrameData: function(){
+  packedFrameData: function () {
     var frameData = this.croppedFrameData(),
       packedFrames = [],
       frameDatum;
+    var i, len;
 
     packedFrames.push(this.packingStructure);
 
-    for (var i = 0, len = frameData.length; i < len; i++){
+    for (i = 0, len = frameData.length; i < len; i++) {
       frameDatum = frameData[i];
 
       packedFrames.push(
@@ -298,24 +307,24 @@ Recording.prototype = {
   // recursive method
   // creates a structure of frame data matching packing structure
   // there may be an issue here where hands/pointables are wrapped in one more array than necessary
-  packArray: function(structure, data){
-    var out = [], nameOrHash;
+  packArray: function (structure, data) {
+    var out = [], nameOrHash, i, len1, j, len2, key;
 
-    for (var i = 0, len1 = structure.length; i < len1; i++){
+    for (i = 0, len1 = structure.length; i < len1; i++) {
 
       // e.g., nameOrHash is either 'id' or {hand: [...]}
       nameOrHash = structure[i];
 
-      if ( typeof  nameOrHash === 'string'){
+      if (typeof nameOrHash === 'string') {
 
         out.push(
           data[nameOrHash]
         );
 
-      }else if (Object.prototype.toString.call(nameOrHash) == "[object Array]") {
+      } else if (Object.prototype.toString.call(nameOrHash) === '[object Array]') {
         // nested array, such as hands or fingers
 
-        for (var j = 0, len2 = data.length; j < len2; j++){
+        for (j = 0, len2 = data.length; j < len2; j++) {
           out.push(
             this.packArray(
               nameOrHash,
@@ -326,13 +335,13 @@ Recording.prototype = {
 
       } else { // key-value (nested object) such as interactionBox
 
-//        console.assert(nameOrHash);
+        //        console.assert(nameOrHash);
 
-        for (var key in nameOrHash) break;
+        for (key in nameOrHash) break;
 
-//        console.assert(key);
-//        console.assert(nameOrHash[key]);
-//        console.assert(data[key]);
+        //        console.assert(key);
+        //        console.assert(nameOrHash[key]);
+        //        console.assert(data[key]);
 
         out.push(this.packArray(
           nameOrHash[key],
@@ -349,12 +358,13 @@ Recording.prototype = {
   // expects the first array element to describe the following arrays
   // this algorithm copies frames to a new array
   // could there be merit in something which would do an in-place substitution?
-  unPackFrameData: function(packedFrames){
+  unPackFrameData: function (packedFrames) {
     var packingStructure = packedFrames[0];
     var frameData = [],
-        frameDatum;
+      frameDatum;
+    var i, len;
 
-    for (var i = 1, len = packedFrames.length; i < len; i++) {
+    for (i = 1, len = packedFrames.length; i < len; i++) {
       frameDatum = packedFrames[i];
       frameData.push(
         this.unPackArray(
@@ -396,45 +406,45 @@ Recording.prototype = {
   //      'center', 'size'
   //    ]}
   //  ];
-  unPackArray: function(structure, data){
+  unPackArray: function (structure, data) {
     var out = {}, nameOrHash;
+    var i, len1, j, len2, key;
+    var subArray = [];
 
-    for (var i = 0, len1 = structure.length; i < len1; i++){
+    for (i = 0, len1 = structure.length; i < len1; i++) {
 
-     // e.g., nameOrHash is either 'id' or {hand: [...]}
-     nameOrHash = structure[i];
+      // e.g., nameOrHash is either 'id' or {hand: [...]}
+      nameOrHash = structure[i];
 
-     if ( typeof  nameOrHash === 'string'){
+      if (typeof nameOrHash === 'string') {
 
-       out[nameOrHash] = data[i];
+        out[nameOrHash] = data[i];
 
-     }else if (Object.prototype.toString.call(nameOrHash) == "[object Array]") {
-       // nested array, such as hands or fingers
-       // nameOrHash ["id", "direction", "palmNormal", "palmPosition", "palmVelocity"]
-       // data [ [ 31, [vec3], [vec3], ...] ]
+      } else if (Object.prototype.toString.call(nameOrHash) === '[object Array]') {
+        // nested array, such as hands or fingers
+        // nameOrHash ["id", "direction", "palmNormal", "palmPosition", "palmVelocity"]
+        // data [ [ 31, [vec3], [vec3], ...] ]
 
-       var subArray = [];
+        for (j = 0, len2 = data.length; j < len2; j++) {
+          subArray.push(
+            this.unPackArray(
+              nameOrHash,
+              data[j]
+            )
+          );
+        }
+        return subArray;
 
-       for (var j = 0, len2 = data.length; j < len2; j++){
-         subArray.push(
-           this.unPackArray(
-             nameOrHash,
-             data[j]
-           )
-         );
-       }
-       return subArray;
+      } else { // key-value (nested object) such as interactionBox
 
-     } else { // key-value (nested object) such as interactionBox
+        for (key in nameOrHash) break;
 
-       for (var key in nameOrHash) break;
+        out[key] = this.unPackArray(
+          nameOrHash[key],
+          data[i]
+        );
 
-       out[key] = this.unPackArray(
-         nameOrHash[key],
-         data[i]
-       );
-
-     }
+      }
 
     }
 
@@ -446,7 +456,7 @@ Recording.prototype = {
     return {
       metadata: this.metadata,
       frames: this.packedFrameData()
-    }
+    };
   },
 
   // Returns the cropped data as JSON or compressed
@@ -454,31 +464,31 @@ Recording.prototype = {
   export: function (format) {
     var json = JSON.stringify(this.toHash());
 
-    if (format == 'json') return json;
+    if (format === 'json') return json;
 
     return LZString.compressToBase64(json);
   },
 
-  save: function(format){
+  save: function (format) {
     var filename;
 
     filename = this.metadata.title ? this.metadata.title.replace(/\s/g, '') : 'leap-playback-recording';
 
     if (this.metadata.frameRate) {
-      filename += "-" + (Math.round(this.metadata.frameRate)) + "fps";
+      filename += '-' + (Math.round(this.metadata.frameRate)) + 'fps';
     }
 
     if (format === 'json') {
 
       saveAs(new Blob([this.export('json')], {
-        type: "text/JSON;charset=utf-8"
-      }), filename + ".json");
+        type: 'text/JSON;charset=utf-8'
+      }), filename + '.json');
 
     } else {
 
       saveAs(new Blob([this.export('lz')], {
-        type: "application/x-gzip;charset=utf-8"
-      }),  filename + ".json.lz");
+        type: 'application/x-gzip;charset=utf-8'
+      }), filename + '.json.lz');
 
     }
 
@@ -488,16 +498,15 @@ Recording.prototype = {
     return LZString.decompressFromBase64(data);
   },
 
-  loaded: function(){
-    return !!(this.frameData && this.frameData.length)
+  loaded: function () {
+    return !!(this.frameData && this.frameData.length);
   },
-
 
   // optional callback once frames are loaded, will have a context of player
   loadFrameData: function (callback) {
     var xhr = new XMLHttpRequest(),
-        url = this.url,
-        recording = this;
+      url = this.url,
+      recording = this;
 
     xhr.onreadystatechange = function () {
       if (xhr.readyState === xhr.DONE) {
@@ -515,13 +524,14 @@ Recording.prototype = {
       }
     };
 
-    xhr.addEventListener('progress', function(oEvent){
+    xhr.addEventListener('progress', function (oEvent) {
+      var percentComplete = oEvent.loaded / oEvent.total;
 
-      if ( recording.options.loadProgress ) {
+      if (recording.options.loadProgress) {
 
         if (oEvent.lengthComputable) {
-          var percentComplete = oEvent.loaded / oEvent.total;
-          recording.options.loadProgress( recording, percentComplete, oEvent );
+
+          recording.options.loadProgress(recording, percentComplete, oEvent);
         }
 
       }
@@ -530,23 +540,23 @@ Recording.prototype = {
 
     this.loading = true;
 
-    xhr.open("GET", url, true);
+    xhr.open('GET', url, true);
     xhr.send(null);
   },
 
-  readFileData: function(responseData, callback){
+  readFileData: function (responseData, callback) {
 
     var url = this.url;
 
-    if (url && url.split('.')[url.split('.').length - 1] == 'lz') {
+    if (url && url.split('.')[url.split('.').length - 1] === 'lz') {
       responseData = this.decompress(responseData);
     }
 
-    if ( Leap._.isString(responseData) ) {
+    if (Leap._.isString(responseData)) {
       responseData = JSON.parse(responseData);
     }
 
-    if (responseData.metadata.formatVersion == 2) {
+    if (responseData.metadata.formatVersion === 2) {
       responseData.frames = this.unPackFrameData(responseData.frames);
     }
 
