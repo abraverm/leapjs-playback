@@ -14,31 +14,21 @@
   },
   "homepage": "https://github.com/leapmotion/leapjs-playback",
   "scripts": {
-    "dev": "webpack --progress --colors --watch"
+    "build": "webpack --env build",
+    "dev": "webpack --env dev --progress --colors --watch"
   },
   "devDependencies": {
-    "grunt": "~0.4.2",
-    "grunt-banner": "git://github.com/pehrlich/grunt-banner.git",
-    "grunt-bump": "0.0.13",
-    "grunt-contrib-clean": "~0.5.0",
-    "grunt-contrib-coffee": "~0.10.1",
-    "grunt-contrib-concat": "~0.3.0",
-    "grunt-contrib-connect": "^0.7.1",
-    "grunt-contrib-sass": "~0.7.3",
-    "grunt-contrib-uglify": "~0.3.2",
-    "grunt-contrib-watch": "~0.6.1",
-    "load-grunt-tasks": "~0.4.0"
-  },
-  "dependencies": {
-    "FileSaver": "^0.10.0",
     "babel": "^6.23.0",
     "babel-core": "^6.26.0",
     "babel-eslint": "^8.0.2",
     "babel-loader": "^7.1.2",
     "eslint": "^4.11.0",
     "eslint-loader": "^1.9.0",
-    "leapjs": "^0.6.4",
-    "lz-string": "^1.4.4",
     "webpack": "^3.8.1"
+  },
+  "dependencies": {
+    "FileSaver": "^0.10.0",
+    "leapjs": "^0.6.4",
+    "lz-string": "^1.4.4"
   }
 }

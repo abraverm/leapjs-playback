@@ -1,7 +1,7 @@
 import * as Leap from 'leapjs';
 import Recording from './recording.js';
 
-function Player(controller, options) {
+export default function Player(controller, options) {
   var player = this;
 
   options || (options = {});
@@ -386,7 +386,7 @@ Player.prototype = {
     // this allows frames to be added to the existing object via ajax
     // saving ajax requests
     if (!(options instanceof Recording)) {
-      this.recording.prototype = Recording.prototype;
+      this.recording.__proto__ = Recording.prototype;
       Recording.call(this.recording, {
         timeBetweenLoops: this.options.timeBetweenLoops,
         loop: this.options.loop,
@@ -561,10 +561,3 @@ export function playback(scope) {
   return {};
 };
 
-if ((typeof Leap !== 'undefined') && Leap.Controller) {
-  Leap.Controller.plugin('playback', playback);
-} else if (typeof module !== 'undefined') {
-  module.exports.playback = playback;
-} else {
-  throw new Error('leap.js not included');
-}
